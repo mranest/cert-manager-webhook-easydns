@@ -58,7 +58,7 @@ spec:
     solvers:
     - dns01:
         webhook:
-          groupName: cert-manager-easydns-webhook.mranest.ghcr.io
+          groupName: cert-manager-webhook-easydns.mranest.ghcr.io
           solverName: easydns
           config:
             tokenSecretRef:
@@ -73,11 +73,11 @@ spec:
 ## Deploy
 
 ```bash
-helm upgrade --install cert-manager-webhook-easydns ./deploy/easydns-webhook \
+helm upgrade --install cert-manager-webhook-easydns ./deploy/webhook-easydns \
   --namespace cert-manager \
   --set image.repository=ghcr.io/mranest/cert-manager-webhook-easydns \
   --set image.tag=latest \
-  --set groupName=cert-manager-easydns-webhook.mranest.ghcr.io
+  --set groupName=cert-manager-webhook-easydns.mranest.ghcr.io
 ```
 
 ## Release strategy
