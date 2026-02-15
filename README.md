@@ -80,6 +80,24 @@ helm upgrade --install cert-manager-webhook-easydns ./deploy/easydns-webhook \
   --set groupName=acme.easydns-webhook.example.com
 ```
 
+## Release strategy
+
+This repository uses separate release flows for the webhook image and Helm chart.
+
+- Webhook image:
+  - Published automatically by GitHub Actions on repository tags matching `v*`.
+  - Uses repository/release versioning tags (for example `v0.1.0`).
+
+- Helm chart:
+  - Published manually.
+  - Uses its own version in `cert-manager-webhook-easydns/deploy/easydns-webhook/Chart.yaml` (`version` field).
+  - Can be released independently of webhook image tags.
+
+Recommended practice:
+
+- When webhook code changes, publish a new image tag and update chart `appVersion` and default image tag accordingly.
+- When only chart/templates/values change, bump chart `version` and publish chart without requiring a new webhook image.
+
 ## Notes
 
 - The Helm chart grants this webhook permission to `get` `Secrets`, because credential refs are resolved at runtime.
@@ -87,10 +105,10 @@ helm upgrade --install cert-manager-webhook-easydns ./deploy/easydns-webhook \
 
 ## Running conformance tests
 
-`/Users/mranest/src/go/cert-manager-webhook-easydns/main_test.go` is configured to run cert-manager DNS01 conformance tests against the EasyDNS solver.
+`cert-manager-webhook-easydns/main_test.go` is configured to run cert-manager DNS01 conformance tests against the EasyDNS solver.
 
 Tests are env-driven. The fixture config is generated at runtime from environment
-variables, and `/Users/mranest/src/go/cert-manager-webhook-easydns/testdata/my-custom-solver/config.example.json`
+variables, and `cert-manager-webhook-easydns/testdata/my-custom-solver/config.example.json`
 is kept as reference for supported config keys.
 
 Prerequisites:
