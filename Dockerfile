@@ -17,6 +17,8 @@ RUN CGO_ENABLED=0 go build -o webhook -ldflags '-w -extldflags "-static"' .
 
 FROM alpine:3.23
 
+LABEL org.opencontainers.image.source="https://github.com/mranest/cert-manager-webhook-easydns"
+
 RUN apk add --no-cache ca-certificates
 
 COPY --from=build /workspace/webhook /usr/local/bin/webhook

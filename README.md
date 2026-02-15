@@ -73,7 +73,7 @@ spec:
 ## Deploy
 
 ```bash
-helm upgrade --install cert-manager-webhook-easydns ./deploy/example-webhook \
+helm upgrade --install cert-manager-webhook-easydns ./deploy/easydns-webhook \
   --namespace cert-manager \
   --set image.repository=ghcr.io/your-org/cert-manager-webhook-easydns \
   --set image.tag=latest \
