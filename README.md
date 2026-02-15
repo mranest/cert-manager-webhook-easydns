@@ -1,63 +1,123 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/cert-manager/cert-manager/d53c0b9270f8cd90d908460d69502694e1838f5f/logo/logo-small.png" height="256" width="256" alt="cert-manager project logo" />
-</p>
+# cert-manager EasyDNS webhook
 
-# ACME webhook example
+This repository implements a cert-manager ACME DNS01 webhook solver for [EasyDNS](https://easydns.com).
 
-The ACME issuer type supports an optional 'webhook' solver, which can be used
-to implement custom DNS01 challenge solving logic.
+The webhook solver name is `easydns`.
 
-This is useful if you need to use cert-manager with a DNS provider that is not
-officially supported in cert-manager core.
+## How it works
 
-## Why not in core?
+- Reads EasyDNS API credentials from a Kubernetes `Secret`.
+- Discovers the authoritative zone by querying EasyDNS records for suffixes of the challenge FQDN.
+- Creates TXT records through the EasyDNS REST API.
+- Removes only matching TXT records during cleanup.
 
-As the project & adoption has grown, there has been an influx of DNS provider
-pull requests to our core codebase. As this number has grown, the test matrix
-has become un-maintainable and so, it's not possible for us to certify that
-providers work to a sufficient level.
+The implementation uses these EasyDNS API patterns:
 
-By creating this 'interface' between cert-manager and DNS providers, we allow
-users to quickly iterate and test out new integrations, and then packaging
-those up themselves as 'extensions' to cert-manager.
+- `GET /zones/records/all/{zone}?format=json`
+- `PUT /zones/records/add/{zone}/txt?format=json`
+- `DELETE /zones/records/{zone}/{id}?format=json`
 
-We can also then provide a standardised 'testing framework', or set of
-conformance tests, which allow us to validate that a DNS provider works as
-expected.
+## Solver configuration
 
-## Creating your own webhook
+In your `Issuer`/`ClusterIssuer`, set:
 
-Webhook's themselves are deployed as Kubernetes API services, in order to allow
-administrators to restrict access to webhooks with Kubernetes RBAC.
+- `tokenSecretRef`: secret ref for EasyDNS API token
+- `keySecretRef`: secret ref for EasyDNS API key
+- `endpoint` (optional): EasyDNS API base URL (default: `https://rest.easydns.net`)
+- `ttl` (optional): TXT record TTL in seconds (default EasyDNS behavior when omitted/0)
 
-This is important, as otherwise it'd be possible for anyone with access to your
-webhook to complete ACME challenge validations and obtain certificates.
+## Example Secret
 
-To make the set up of these webhook's easier, we provide a template repository
-that can be used to get started quickly.
-
-When implementing your webhook, you should set the `groupName` in the
-[values.yml](deploy/example-webhook/values.yaml) of your chart to a domain name that 
-you - as the webhook-author - own. It should not need to be adjusted by the users of
-your chart.
-
-### Creating your own repository
-
-### Running the test suite
-
-All DNS providers **must** run the DNS01 provider conformance testing suite,
-else they will have undetermined behaviour when used with cert-manager.
-
-**It is essential that you configure and run the test suite when creating a
-DNS01 webhook.**
-
-An example Go test file has been provided in [main_test.go](https://github.com/cert-manager/webhook-example/blob/master/main_test.go).
-
-You can run the test suite with:
-
-```bash
-$ TEST_ZONE_NAME=example.com. make test
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: easydns-credentials
+  namespace: cert-manager
+type: Opaque
+stringData:
+  token: "<easydns-token>"
+  key: "<easydns-key>"
 ```
 
-The example file has a number of areas you must fill in and replace with your
-own options in order for tests to pass.
+## Example ClusterIssuer
+
+Replace `groupName` with the chart value you deploy.
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-easydns
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: you@example.com
+    privateKeySecretRef:
+      name: letsencrypt-easydns
+    solvers:
+    - dns01:
+        webhook:
+          groupName: acme.easydns-webhook.example.com
+          solverName: easydns
+          config:
+            tokenSecretRef:
+              name: easydns-credentials
+              key: token
+            keySecretRef:
+              name: easydns-credentials
+              key: key
+            ttl: 300
+```
+
+## Deploy
+
+```bash
+helm upgrade --install cert-manager-webhook-easydns ./deploy/example-webhook \
+  --namespace cert-manager \
+  --set image.repository=ghcr.io/your-org/cert-manager-webhook-easydns \
+  --set image.tag=latest \
+  --set groupName=acme.easydns-webhook.example.com
+```
+
+## Notes
+
+- The Helm chart grants this webhook permission to `get` `Secrets`, because credential refs are resolved at runtime.
+- For `ClusterIssuer`, place the credentials secret in cert-manager's cluster resource namespace (commonly `cert-manager`).
+
+## Running conformance tests
+
+`/Users/mranest/src/go/cert-manager-webhook-easydns/main_test.go` is configured to run cert-manager DNS01 conformance tests against the EasyDNS solver.
+
+Tests are env-driven. The fixture config is generated at runtime from environment
+variables, and `/Users/mranest/src/go/cert-manager-webhook-easydns/testdata/my-custom-solver/config.example.json`
+is kept as reference for supported config keys.
+
+Prerequisites:
+
+- Set `TEST_ZONE_NAME` to an EasyDNS-managed zone (for example `example.com.`).
+- Set `EASYDNS_TOKEN` and `EASYDNS_KEY` with credentials that can manage that zone.
+- Ensure the test environment can reach `https://rest.easydns.net`.
+- Ensure network access is available to download envtest binaries (the `make test` target uses `setup-envtest` automatically and exports `TEST_ASSET_ETCD`, `TEST_ASSET_KUBE_APISERVER`, and `TEST_ASSET_KUBECTL`).
+
+Run:
+
+```bash
+TEST_ZONE_NAME=example.com. EASYDNS_TOKEN=... EASYDNS_KEY=... make test
+```
+
+Optional test env overrides:
+
+- `TEST_RESOLVED_FQDN` (default: `cert-manager-dns01-tests.<TEST_ZONE_NAME>`)
+- `TEST_DNS_NAME` (default fixture value: `example.com`)
+- `TEST_DNS_SERVER` (override recursive resolver)
+- `TEST_USE_AUTHORITATIVE` (`true`/`false`)
+- `TEST_POLL_INTERVAL` (Go duration, e.g. `5s`)
+- `TEST_PROPAGATION_LIMIT` (Go duration, e.g. `5m`)
+- `EASYDNS_ENDPOINT` (default: `https://rest.easydns.net`)
+- `EASYDNS_TTL` (default: `300`)
+- `EASYDNS_SECRET_NAME` (default: `easydns-credentials`)
+- `EASYDNS_TOKEN_SECRET_KEY` (default: `token`)
+- `EASYDNS_KEY_SECRET_KEY` (default: `key`)
+
+The conformance suite performs real TXT record operations for DNS01 challenges. Use a dedicated test zone/account.

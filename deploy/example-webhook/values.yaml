@@ -8,14 +8,15 @@
 # The name will need to be referenced in each Issuer's `webhook` stanza to
 # inform cert-manager of where to send ChallengePayload resources in order to
 # solve the DNS01 challenge.
-groupName: acme.mycompany.com
+groupName: acme.easydns-webhook.example.com
+replicaCount: 1
 
 certManager:
   namespace: cert-manager
   serviceAccountName: cert-manager
 
 image:
-  repository: mycompany/webhook-image
+  repository: ghcr.io/your-org/cert-manager-webhook-easydns
   tag: latest
   pullPolicy: IfNotPresent
 

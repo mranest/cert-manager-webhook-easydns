@@ -1,31 +1,35 @@
 GO ?= $(shell which go)
 OS ?= $(shell $(GO) env GOOS)
 ARCH ?= $(shell $(GO) env GOARCH)
+SETUP_ENVTEST ?= $(shell $(GO) env GOPATH)/bin/setup-envtest
+SETUP_ENVTEST_GOBIN ?= $(dir $(SETUP_ENVTEST))
 
 IMAGE_NAME := "webhook"
 IMAGE_TAG := "latest"
 
 OUT := $(shell pwd)/_out
 
-KUBEBUILDER_VERSION=1.28.0
+ENVTEST_K8S_VERSION ?= 1.28.0
 
 HELM_FILES := $(shell find deploy/example-webhook)
 
-test: _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)/etcd _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)/kube-apiserver _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)/kubectl
-	TEST_ASSET_ETCD=_test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)/etcd \
-	TEST_ASSET_KUBE_APISERVER=_test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)/kube-apiserver \
-	TEST_ASSET_KUBECTL=_test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)/kubectl \
+test: setup-envtest
+	@mkdir -p _test/bin
+	@ASSETS_DIR="$$($(SETUP_ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(shell pwd)/_test/bin -p path)"; \
+	TEST_ASSET_ETCD="$$ASSETS_DIR/etcd" \
+	TEST_ASSET_KUBE_APISERVER="$$ASSETS_DIR/kube-apiserver" \
+	TEST_ASSET_KUBECTL="$$ASSETS_DIR/kubectl" \
 	$(GO) test -v .
 
-_test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH).tar.gz: | _test
-	curl -fsSL https://go.kubebuilder.io/test-tools/$(KUBEBUILDER_VERSION)/$(OS)/$(ARCH) -o $@
-
-_test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)/etcd _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)/kube-apiserver _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)/kubectl: _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH).tar.gz | _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)
-	tar xfO $< kubebuilder/bin/$(notdir $@) > $@ && chmod +x $@
+setup-envtest:
+	@command -v $(SETUP_ENVTEST) >/dev/null 2>&1 || { \
+		echo "Installing setup-envtest to $(SETUP_ENVTEST)"; \
+		GOBIN=$(SETUP_ENVTEST_GOBIN) $(GO) install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest; \
+	}
 
 .PHONY: clean
 clean:
-	rm -r _test $(OUT)
+	rm -rf _test $(OUT)
 
 .PHONY: build
 build:
@@ -41,5 +45,5 @@ $(OUT)/rendered-manifest.yaml: $(HELM_FILES) | $(OUT)
             --set image.tag=$(IMAGE_TAG) \
             deploy/example-webhook > $@
 
-_test $(OUT) _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH):
+_test $(OUT):
 	mkdir -p $@

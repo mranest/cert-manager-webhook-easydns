@@ -1,0 +1,12 @@
+{
+  "tokenSecretRef": {
+    "name": "easydns-credentials",
+    "key": "token"
+  },
+  "keySecretRef": {
+    "name": "easydns-credentials",
+    "key": "key"
+  },
+  "endpoint": "https://rest.easydns.net",
+  "ttl": 300
+}
