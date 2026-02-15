@@ -1,0 +1,21 @@
+cert-manager EasyDNS webhook has been installed.
+
+1. Verify webhook deployment:
+   kubectl -n {{ .Release.Namespace }} get deploy {{ include "easydns-webhook.fullname" . }}
+   kubectl -n {{ .Release.Namespace }} get pods -l app={{ include "easydns-webhook.name" . }}
+
+2. Verify aggregated API registration:
+   kubectl get apiservice v1alpha1.{{ .Values.groupName }}
+   kubectl describe apiservice v1alpha1.{{ .Values.groupName }}
+
+3. Create EasyDNS credential Secret (example namespace: cert-manager):
+   kubectl -n {{ .Values.certManager.namespace }} create secret generic easydns-credentials \
+     --from-literal=token='<easydns-token>' \
+     --from-literal=key='<easydns-key>'
+
+4. Configure your Issuer/ClusterIssuer webhook solver:
+   groupName: {{ .Values.groupName }}
+   solverName: easydns
+
+5. Check webhook logs if validation fails:
+   kubectl -n {{ .Release.Namespace }} logs deploy/{{ include "easydns-webhook.fullname" . }}

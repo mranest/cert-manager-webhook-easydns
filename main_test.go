@@ -11,7 +11,6 @@ import (
 
 	extapi "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
-	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	acmetest "github.com/cert-manager/cert-manager/test/acme"
 )
 
@@ -107,16 +106,10 @@ func buildSolverConfig(t *testing.T) solverConfig {
 	keyKey := getEnvOrDefault("EASYDNS_KEY_SECRET_KEY", "key")
 
 	cfg := easyDNSConfig{
-		TokenSecretRef: cmmeta.SecretKeySelector{
-			LocalObjectReference: cmmeta.LocalObjectReference{Name: secretName},
-			Key:                  tokenKey,
-		},
-		KeySecretRef: cmmeta.SecretKeySelector{
-			LocalObjectReference: cmmeta.LocalObjectReference{Name: secretName},
-			Key:                  keyKey,
-		},
-		Endpoint: os.Getenv("EASYDNS_ENDPOINT"),
-		TTL:      300,
+		TokenSecretRef: secretKeyRef{Name: secretName, Key: tokenKey},
+		KeySecretRef:   secretKeyRef{Name: secretName, Key: keyKey},
+		Endpoint:       os.Getenv("EASYDNS_ENDPOINT"),
+		TTL:            300,
 	}
 	if value := os.Getenv("EASYDNS_TTL"); value != "" {
 		ttl, err := strconv.Atoi(value)

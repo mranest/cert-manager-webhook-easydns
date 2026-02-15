@@ -34,6 +34,7 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=tag
+            type=match,pattern=v(.*),group=1
             type=sha,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
 
@@ -81,6 +82,7 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=tag
+            type=match,pattern=v(.*),group=1
             type=sha,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
 

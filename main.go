@@ -20,7 +20,6 @@ import (
 
 	"github.com/cert-manager/cert-manager/pkg/acme/webhook/apis/acme/v1alpha1"
 	"github.com/cert-manager/cert-manager/pkg/acme/webhook/cmd"
-	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 )
 
 var GroupName = os.Getenv("GROUP_NAME")
@@ -65,10 +64,15 @@ type easyDNSSolver struct {
 // be used by your provider here, you should reference a Kubernetes Secret
 // resource and fetch these credentials using a Kubernetes clientset.
 type easyDNSConfig struct {
-	TokenSecretRef cmmeta.SecretKeySelector `json:"tokenSecretRef"`
-	KeySecretRef   cmmeta.SecretKeySelector `json:"keySecretRef"`
-	Endpoint       string                   `json:"endpoint,omitempty"`
-	TTL            int                      `json:"ttl,omitempty"`
+	TokenSecretRef secretKeyRef `json:"tokenSecretRef"`
+	KeySecretRef   secretKeyRef `json:"keySecretRef"`
+	Endpoint       string       `json:"endpoint,omitempty"`
+	TTL            int          `json:"ttl,omitempty"`
+}
+
+type secretKeyRef struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
 }
 
 // Name is used as the name for this DNS solver when referencing it on the ACME
@@ -222,7 +226,7 @@ func (c *easyDNSSolver) loadCredentials(namespace string, cfg easyDNSConfig) (st
 	return token, key, nil
 }
 
-func (c *easyDNSSolver) loadSecretKey(namespace string, ref cmmeta.SecretKeySelector) (string, error) {
+func (c *easyDNSSolver) loadSecretKey(namespace string, ref secretKeyRef) (string, error) {
 	if ref.Name == "" || ref.Key == "" {
 		return "", fmt.Errorf("secret reference must include both name and key")
 	}
