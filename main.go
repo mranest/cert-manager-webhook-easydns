@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -222,6 +224,15 @@ func (c *easyDNSSolver) loadCredentials(namespace string, cfg easyDNSConfig) (st
 	key, err := c.loadSecretKey(namespace, cfg.KeySecretRef)
 	if err != nil {
 		return "", "", err
+	}
+	if c.debugHTTP {
+		fmt.Printf("[easydns] credentials source=%s/%s[%s],%s[%s] token[len=%d sha256=%s] key[len=%d sha256=%s]\n",
+			namespace,
+			cfg.TokenSecretRef.Name, cfg.TokenSecretRef.Key,
+			cfg.KeySecretRef.Name, cfg.KeySecretRef.Key,
+			len(token), shortSHA256(token),
+			len(key), shortSHA256(key),
+		)
 	}
 	return token, key, nil
 }
@@ -447,4 +458,9 @@ func sameHost(left, right string) bool {
 		return strings.TrimSuffix(value, ".")
 	}
 	return strings.EqualFold(normalize(left), normalize(right))
+}
+
+func shortSHA256(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:8])
 }

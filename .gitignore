@@ -17,3 +17,5 @@ cert-manager-webhook-example
 # Make artifacts
 _out
 _test
+# Local test credentials for conformance runs.
+testdata/easydns-solver/easydns-credentials.yaml

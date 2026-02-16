@@ -86,7 +86,7 @@ This repository uses separate release flows for the webhook image and Helm chart
 
 - Webhook image:
   - Published automatically by GitHub Actions on repository tags matching `v*`.
-  - Uses repository/release versioning tags (for example `v0.1.0`).
+  - Uses repository/release versioning tags (for example `0.1.2`).
 
 - Helm chart:
   - Published manually.
@@ -107,21 +107,24 @@ Recommended practice:
 
 `cert-manager-webhook-easydns/main_test.go` is configured to run cert-manager DNS01 conformance tests against the EasyDNS solver.
 
-Tests are env-driven. The fixture config is generated at runtime from environment
-variables, and `cert-manager-webhook-easydns/testdata/my-custom-solver/config.example.json`
-is kept as reference for supported config keys.
+Tests are file-driven from `cert-manager-webhook-easydns/testdata/easydns-solver/config.json`.
+`main_test.go` reads this file and passes the resulting config to the solver.
 
 Prerequisites:
 
 - Set `TEST_ZONE_NAME` to an EasyDNS-managed zone (for example `example.com.`).
-- Set `EASYDNS_TOKEN` and `EASYDNS_KEY` with credentials that can manage that zone.
+- Configure credentials with `tokenSecretRef` and `keySecretRef` in
+  `testdata/easydns-solver/config.json`, plus a matching Secret manifest in
+  `testdata/easydns-solver/` so it is applied in test namespaces.
+  - Copy `testdata/easydns-solver/easydns-credentials.yaml.example` to
+    `testdata/easydns-solver/easydns-credentials.yaml` and set real values.
 - Ensure the test environment can reach `https://rest.easydns.net`.
 - Ensure network access is available to download envtest binaries (the `make test` target uses `setup-envtest` automatically and exports `TEST_ASSET_ETCD`, `TEST_ASSET_KUBE_APISERVER`, and `TEST_ASSET_KUBECTL`).
 
 Run:
 
 ```bash
-TEST_ZONE_NAME=example.com. EASYDNS_TOKEN=... EASYDNS_KEY=... make test
+TEST_ZONE_NAME=example.com. make test
 ```
 
 Optional test env overrides:
@@ -132,10 +135,5 @@ Optional test env overrides:
 - `TEST_USE_AUTHORITATIVE` (`true`/`false`)
 - `TEST_POLL_INTERVAL` (Go duration, e.g. `5s`)
 - `TEST_PROPAGATION_LIMIT` (Go duration, e.g. `5m`)
-- `EASYDNS_ENDPOINT` (default: `https://rest.easydns.net`)
-- `EASYDNS_TTL` (default: `300`)
-- `EASYDNS_SECRET_NAME` (default: `easydns-credentials`)
-- `EASYDNS_TOKEN_SECRET_KEY` (default: `token`)
-- `EASYDNS_KEY_SECRET_KEY` (default: `key`)
 
 The conformance suite performs real TXT record operations for DNS01 challenges. Use a dedicated test zone/account.

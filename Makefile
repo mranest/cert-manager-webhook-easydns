@@ -11,7 +11,7 @@ OUT := $(shell pwd)/_out
 
 ENVTEST_K8S_VERSION ?= 1.28.0
 
-HELM_FILES := $(shell find deploy/easydns-webhook)
+HELM_FILES := $(shell find deploy/webhook-easydns)
 
 test: setup-envtest
 	@mkdir -p _test/bin
@@ -43,7 +43,7 @@ $(OUT)/rendered-manifest.yaml: $(HELM_FILES) | $(OUT)
 	    --name easydns-webhook \
             --set image.repository=$(IMAGE_NAME) \
             --set image.tag=$(IMAGE_TAG) \
-            deploy/easydns-webhook > $@
+            deploy/webhook-easydns > $@
 
 _test $(OUT):
 	mkdir -p $@

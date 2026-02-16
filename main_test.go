@@ -2,9 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -22,13 +20,8 @@ func TestRunsSuite(t *testing.T) {
 	if zone == "" {
 		t.Skip("TEST_ZONE_NAME must be set, e.g. example.com.")
 	}
-	token := os.Getenv("EASYDNS_TOKEN")
-	key := os.Getenv("EASYDNS_KEY")
-	if token == "" || key == "" {
-		t.Skip("EASYDNS_TOKEN and EASYDNS_KEY must be set")
-	}
-	config := buildSolverConfig(t)
-	manifestPath := buildManifestPath(t, token, key, config.SecretName)
+	manifestPath := "testdata/easydns-solver"
+	config := loadSolverConfig(t, manifestPath+"/config.json")
 
 	opts := []acmetest.Option{
 		acmetest.SetResolvedZone(zone),
@@ -72,66 +65,28 @@ func TestRunsSuite(t *testing.T) {
 	fixture.RunConformance(t)
 }
 
-func buildManifestPath(t *testing.T, token, key, secretName string) string {
-	t.Helper()
-
-	dir := t.TempDir()
-
-	secretManifest := fmt.Sprintf(`apiVersion: v1
-kind: Secret
-metadata:
-  name: %s
-type: Opaque
-stringData:
-  token: %q
-  key: %q
-`, secretName, token, key)
-	if err := os.WriteFile(filepath.Join(dir, "easydns-credentials.yaml"), []byte(secretManifest), 0o600); err != nil {
-		t.Fatalf("writing credential manifest: %v", err)
-	}
-
-	return dir
-}
-
 type solverConfig struct {
-	JSON       extapi.JSON
-	SecretName string
+	JSON extapi.JSON
 }
 
-func buildSolverConfig(t *testing.T) solverConfig {
+func loadSolverConfig(t *testing.T, path string) solverConfig {
 	t.Helper()
 
-	secretName := getEnvOrDefault("EASYDNS_SECRET_NAME", "easydns-credentials")
-	tokenKey := getEnvOrDefault("EASYDNS_TOKEN_SECRET_KEY", "token")
-	keyKey := getEnvOrDefault("EASYDNS_KEY_SECRET_KEY", "key")
-
-	cfg := easyDNSConfig{
-		TokenSecretRef: secretKeyRef{Name: secretName, Key: tokenKey},
-		KeySecretRef:   secretKeyRef{Name: secretName, Key: keyKey},
-		Endpoint:       os.Getenv("EASYDNS_ENDPOINT"),
-		TTL:            300,
-	}
-	if value := os.Getenv("EASYDNS_TTL"); value != "" {
-		ttl, err := strconv.Atoi(value)
-		if err != nil {
-			t.Fatalf("invalid EASYDNS_TTL value %q: %v", value, err)
-		}
-		cfg.TTL = ttl
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading test config %q: %v", path, err)
 	}
 
-	raw, err := json.Marshal(cfg)
+	cfg := easyDNSConfig{}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatalf("decoding test config %q: %v", path, err)
+	}
+
+	normalized, err := json.Marshal(cfg)
 	if err != nil {
 		t.Fatalf("encoding solver config: %v", err)
 	}
 	return solverConfig{
-		JSON:       extapi.JSON{Raw: raw},
-		SecretName: secretName,
+		JSON: extapi.JSON{Raw: normalized},
 	}
-}
-
-func getEnvOrDefault(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return fallback
 }
