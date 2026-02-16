@@ -17,7 +17,8 @@ certManager:
 
 image:
   repository: ghcr.io/mranest/cert-manager-webhook-easydns
-  tag: 0.1.2
+  # If empty, defaults to Chart.yaml appVersion.
+  tag: ""
   pullPolicy: Always
 
 nameOverride: ""
